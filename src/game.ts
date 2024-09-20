@@ -50,49 +50,63 @@ export const createLevel = (raw: string[]): Level => {
   };
 };
 
-class Point {
+export class Point {
   constructor(
-    public col: number,
     public index: number,
+    public col: number,
   ) {}
 
   add(other: Point): Point {
-    return new Point(this.col + other.col, this.index + other.index);
+    return new Point(this.index + other.index, this.col + other.col);
+  }
+
+  serialize(): string {
+    return `${this.index}:${this.col}`;
   }
 }
 
-const move = (origin: Point): Point[] => {
+const moveArea = (origin: Point): Record<string, boolean> => {
   const dirs = [
-    { col: 0, index: 1 },
-    { col: 0, index: 2 },
-    { col: 1, index: 0 },
-    { col: 2, index: 0 },
-    { col: 0, index: -1 },
-    { col: 0, index: -2 },
-    { col: -1, index: 0 },
-    { col: -2, index: 0 },
+    [0, 1],
+    [0, 2],
+    [1, 0],
+    [2, 0],
+    [0, -1],
+    [0, -2],
+    [-1, 0],
+    [-2, 0],
   ];
 
-  return dirs.flatMap((dir) => {
-    const result = new Point(dir.col, dir.index).add(origin);
+  return dirs
+    .flatMap(([index, col]) => {
+      const result = new Point(index, col).add(origin);
 
-    // TODO: Need to check level width/height as well.
-    if (
-      result.col >= 0 &&
-      result.col <= 7 &&
-      result.index <= 7 &&
-      result.index >= 0
-    ) {
-      return result;
-    } else {
-      // Lazy filterMap.
-      return [];
-    }
-  });
+      // TODO: Need to check level width/height as well.
+      if (
+        result.col >= 0 &&
+        result.col <= 7 &&
+        result.index <= 7 &&
+        result.index >= 0
+      ) {
+        return result;
+      } else {
+        // Lazy filterMap.
+        return [];
+      }
+    })
+    .reduce(
+      (acc, cur) => {
+        acc[cur.serialize()] = true;
+        return acc;
+      },
+      {} as Record<string, boolean>,
+    );
 };
 
 class Game {
   level: Level;
+  isAbilityQueued: boolean = false;
+  availableMoves: Record<string, boolean> = {};
 
   constructor(private render: () => void) {
     this.level = createLevel(levelOne);
@@ -101,6 +115,41 @@ class Game {
   get tiles(): Tile[][] {
     return this.level.tiles;
   }
+
+  // TODO: This is kinda lame. Probably should just track the player position separately.
+  get player(): Point {
+    for (let i = 0; i < this.level.tiles.length; i++) {
+      const row = this.level.tiles[i];
+      for (let col = 0; col < row.length; col++) {
+        const token = row[col];
+        if (token === "p") {
+          return new Point(i, col);
+        }
+      }
+    }
+
+    throw new Error("no player found in level tiles");
+  }
+
+  cancel() {
+    this.availableMoves = {};
+    this.isAbilityQueued = false;
+    this.render();
+  }
+
+  isMoveable(pt: Point): boolean {
+    return !!this.availableMoves[pt.serialize()];
+  }
+
+  // Render the positional affect of an ability on the screen, before
+  // the player actually uses it.
+  showAbility(/* ability: Ability, maybe */) {
+    this.availableMoves = moveArea(this.player);
+    this.isAbilityQueued = true;
+    this.render();
+  }
+
+  commitMove() {}
 }
 
 export default Game;

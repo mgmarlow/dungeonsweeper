@@ -1,5 +1,5 @@
 import { h } from "snabbdom";
-import Game, { type Tile } from "./game";
+import Game, { Point, type Tile } from "./game";
 import player from "./img/player.png";
 import ghost from "./img/ghost.png";
 import wall from "./img/wall.png";
@@ -17,9 +17,10 @@ const tileSrc = (token: string): string | undefined => {
   }
 };
 
-const Board = (tiles: Tile[][]) => {
-  const content = tiles.map((row) => {
-    const rowContent = row.map((token: Tile) => {
+const Board = (game: Game) => {
+  const content = game.tiles.map((row, i) => {
+    const rowContent = row.map((token: Tile, col) => {
+      const point = new Point(i, col);
       const tileContent = [];
       const src = tileSrc(token);
 
@@ -36,11 +37,13 @@ const Board = (tiles: Tile[][]) => {
         );
       }
 
+      const bg = game.isMoveable(point) ? "#819669" : "#b58863";
+
       return h(
         "div.square",
         {
           style: {
-            backgroundColor: "#b58863",
+            backgroundColor: bg,
             display: "inline-block",
             width: `${TILE_SIZE}px`,
             height: `${TILE_SIZE}px`,
@@ -57,6 +60,15 @@ const Board = (tiles: Tile[][]) => {
 };
 
 const Sidebar = (game: Game) => {
+  const content = [
+    h("button", { on: { click: () => game.showAbility() } }, "move"),
+    h("button", "attack"),
+  ];
+
+  if (game.isAbilityQueued) {
+    content.push(h("button", { on: { click: () => game.cancel() } }, "cancel"));
+  }
+
   return h(
     "div.sidebar",
     {
@@ -67,7 +79,7 @@ const Sidebar = (game: Game) => {
         flexDirection: "column",
       },
     },
-    [h("button", "move"), h("button", "attack")],
+    content,
   );
 };
 
@@ -75,6 +87,6 @@ export const view = (game: Game) => {
   return h(
     "div.container",
     { style: { display: "flex", justifyContent: "center" } },
-    [Board(game.tiles), Sidebar(game)],
+    [Board(game), Sidebar(game)],
   );
 };
